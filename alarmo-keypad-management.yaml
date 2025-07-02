@@ -36,6 +36,18 @@ triggers:
     id: to_state_disarmed
   - trigger: state
     entity_id: !input entity
+    to: armed_custom_bypass
+    id: to_state_armed_custom
+  - trigger: state
+    entity_id: !input entity
+    to: armed_vacation
+    id: to_state_armed_vacation
+  - trigger: state
+    entity_id: !input entity
+    to: armed_night
+    id: to_state_armed_night
+  - trigger: state
+    entity_id: !input entity
     to: armed_home
     id: to_state_armed_home
   - trigger: state
@@ -75,9 +87,23 @@ action:
               topic: !input set_topic
               payload: |-
                 {
-                  "arm_mode": 
+                  "arm_mode":
                   {
                     "mode": "disarm"
+                  }
+                }
+      - conditions:
+          - condition: trigger
+            id: to_state_armed_night
+        sequence:
+          - service: mqtt.publish
+            data_template:
+              topic: !input set_topic
+              payload: |-
+                {
+                  "arm_mode":
+                  {
+                    "mode": "arm_night_zones"
                   }
                 }
       - conditions:
@@ -89,21 +115,24 @@ action:
               topic: !input set_topic
               payload: |-
                 {
-                  "arm_mode": 
+                  "arm_mode":
                   {
                     "mode": "arm_day_zones"
                   }
                 }
       - conditions:
           - condition: trigger
-            id: to_state_armed_away
+            id:
+              - to_state_armed_away
+              - to_state_armed_vacation
+              - to_state_armed_custom
         sequence:
           - service: mqtt.publish
             data_template:
               topic: !input set_topic
               payload: |-
                 {
-                  "arm_mode": 
+                  "arm_mode":
                   {
                     "mode": "arm_all_zones"
                   }
@@ -117,7 +146,7 @@ action:
               topic: !input set_topic
               payload: |-
                 {
-                  "arm_mode": 
+                  "arm_mode":
                   {
                     "mode": "exit_delay"
                   }
@@ -131,7 +160,7 @@ action:
               topic: !input set_topic
               payload: |-
                 {
-                  "arm_mode": 
+                  "arm_mode":
                   {
                     "mode": "entry_delay"
                   }
@@ -145,7 +174,7 @@ action:
               topic: !input set_topic
               payload: |-
                 {
-                  "arm_mode": 
+                  "arm_mode":
                   {
                     "mode": "in_alarm"
                   }
@@ -184,6 +213,16 @@ action:
                       mode: home
                       code: "{{ trigger.payload_json.action_code }}"
                       context_id: "{{ trigger.payload_json.action_transaction }}"
+              - conditions:
+                  - condition: template
+                    value_template: '{{ trigger.payload_json.action == "arm_night_zones"  }}'
+                sequence:
+                  - service: alarmo.arm
+                    data:
+                      entity_id: !input entity
+                      mode: night
+                      code: "{{ trigger.payload_json.action_code }}"
+                      context_id: "{{ trigger.payload_json.action_transaction }}"
       - conditions:
           - condition: trigger
             id: event_arm_failure
@@ -198,7 +237,7 @@ action:
                       topic: !input set_topic
                       payload: |-
                         {
-                          "arm_mode": 
+                          "arm_mode":
                           {
                             "transaction": {{ trigger.event.data.context_id }},
                             "mode": "invalid_code"
@@ -213,7 +252,7 @@ action:
                       topic: !input set_topic
                       payload: |-
                         {
-                          "arm_mode": 
+                          "arm_mode":
                           {
                             "transaction": {{ trigger.event.data.context_id }},
                             "mode": "not_ready"
@@ -230,7 +269,7 @@ action:
                       topic: !input set_topic
                       payload: |-
                         {
-                          "arm_mode": 
+                          "arm_mode":
                           {
                             "transaction": {{ trigger.event.data.context_id }},
                             "mode": "already_disarmed"
@@ -247,14 +286,15 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.context_id != null }}"
                   - condition: template
-                    value_template: "{{ trigger.event.data.mode == 'away' }}"
+                    value_template:
+                      "{{ trigger.event.data.mode in ['away', 'vacation', 'custom'] }}"
                 sequence:
                   - service: mqtt.publish
                     data_template:
                       topic: !input set_topic
                       payload: |-
                         {
-                          "arm_mode": 
+                          "arm_mode":
                           {
                             "transaction": {{ trigger.event.data.context_id }},
                             "mode": "arm_all_zones"
@@ -273,10 +313,29 @@ action:
                       topic: !input set_topic
                       payload: |-
                         {
-                          "arm_mode": 
+                          "arm_mode":
                           {
                             "transaction": {{ trigger.event.data.context_id }},
                             "mode": "arm_day_zones"
+                          }
+                        }
+              - conditions:
+                  - condition: template
+                    value_template: "{{ trigger.event.data.action == 'arm' }}"
+                  - condition: template
+                    value_template: "{{ trigger.event.data.context_id != null }}"
+                  - condition: template
+                    value_template: "{{ trigger.event.data.mode == 'night' }}"
+                sequence:
+                  - service: mqtt.publish
+                    data_template:
+                      topic: !input set_topic
+                      payload: |-
+                        {
+                          "arm_mode":
+                          {
+                            "transaction": {{ trigger.event.data.context_id }},
+                            "mode": "arm_night_zones"
                           }
                         }
               - conditions:
@@ -290,7 +349,7 @@ action:
                       topic: !input set_topic
                       payload: |-
                         {
-                          "arm_mode": 
+                          "arm_mode":
                           {
                             "transaction": {{ trigger.event.data.context_id }},
                             "mode": "disarm"
