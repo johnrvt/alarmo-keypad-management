@@ -1,6 +1,6 @@
 blueprint:
-  name: Alarmo Keypad Sync
-  description: Keypad sync with Alarmo
+  name: Alarmo keypad management
+  description: Keypad management for Alarmo with Zigbee2MQTT.
   domain: automation
 
   input:
