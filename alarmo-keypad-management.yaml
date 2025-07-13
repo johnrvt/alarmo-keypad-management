@@ -30,42 +30,6 @@ mode: parallel
 max: 10
 
 triggers:
-  - trigger: state
-    entity_id: !input entity
-    to: disarmed
-    id: to_state_disarmed
-  - trigger: state
-    entity_id: !input entity
-    to: armed_custom_bypass
-    id: to_state_armed_custom
-  - trigger: state
-    entity_id: !input entity
-    to: armed_vacation
-    id: to_state_armed_vacation
-  - trigger: state
-    entity_id: !input entity
-    to: armed_night
-    id: to_state_armed_night
-  - trigger: state
-    entity_id: !input entity
-    to: armed_home
-    id: to_state_armed_home
-  - trigger: state
-    entity_id: !input entity
-    to: armed_away
-    id: to_state_armed_away
-  - trigger: state
-    entity_id: !input entity
-    to: arming
-    id: to_state_arming
-  - trigger: state
-    entity_id: !input entity
-    to: pending
-    id: to_state_pending
-  - trigger: state
-    entity_id: !input entity
-    to: triggered
-    id: to_state_triggered
   - trigger: mqtt
     topic: !input state_topic
     id: keypad_command
@@ -75,110 +39,15 @@ triggers:
   - trigger: event
     event_type: alarmo_command_success
     id: event_command_success
+  - trigger: state
+    entity_id: !input entity
+    not_to:
+      - unavailable
+      - unknown
+    id: state_changed
 
 action:
   - choose:
-      - conditions:
-          - condition: trigger
-            id: to_state_disarmed
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "disarm"
-                  }
-                }
-      - conditions:
-          - condition: trigger
-            id: to_state_armed_night
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "arm_night_zones"
-                  }
-                }
-      - conditions:
-          - condition: trigger
-            id: to_state_armed_home
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "arm_day_zones"
-                  }
-                }
-      - conditions:
-          - condition: trigger
-            id:
-              - to_state_armed_away
-              - to_state_armed_vacation
-              - to_state_armed_custom
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "arm_all_zones"
-                  }
-                }
-      - conditions:
-          - condition: trigger
-            id: to_state_arming
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "exit_delay"
-                  }
-                }
-      - conditions:
-          - condition: trigger
-            id: to_state_pending
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "entry_delay"
-                  }
-                }
-      - conditions:
-          - condition: trigger
-            id: to_state_triggered
-        sequence:
-          - service: mqtt.publish
-            data_template:
-              topic: !input set_topic
-              payload: |-
-                {
-                  "arm_mode":
-                  {
-                    "mode": "in_alarm"
-                  }
-                }
       - conditions:
           - condition: trigger
             id: keypad_command
@@ -188,7 +57,7 @@ action:
                   - condition: template
                     value_template: '{{ trigger.payload_json.action == "disarm" }}'
                 sequence:
-                  - service: alarmo.disarm
+                  - action: alarmo.disarm
                     data:
                       entity_id: !input entity
                       code: "{{ trigger.payload_json.action_code }}"
@@ -197,7 +66,7 @@ action:
                   - condition: template
                     value_template: '{{ trigger.payload_json.action == "arm_all_zones" }}'
                 sequence:
-                  - service: alarmo.arm
+                  - action: alarmo.arm
                     data:
                       entity_id: !input entity
                       mode: away
@@ -207,7 +76,7 @@ action:
                   - condition: template
                     value_template: '{{ trigger.payload_json.action == "arm_day_zones" }}'
                 sequence:
-                  - service: alarmo.arm
+                  - action: alarmo.arm
                     data:
                       entity_id: !input entity
                       mode: home
@@ -217,7 +86,7 @@ action:
                   - condition: template
                     value_template: '{{ trigger.payload_json.action == "arm_night_zones" }}'
                 sequence:
-                  - service: alarmo.arm
+                  - action: alarmo.arm
                     data:
                       entity_id: !input entity
                       mode: night
@@ -232,8 +101,8 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.reason == 'invalid_code' }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -247,8 +116,8 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.reason == 'open_sensors' }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -264,8 +133,8 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.command|lower == 'disarm' }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -289,8 +158,8 @@ action:
                     value_template:
                       "{{ trigger.event.data.mode in ['away', 'vacation', 'custom'] }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -308,8 +177,8 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.mode == 'home' }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -327,8 +196,8 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.mode == 'night' }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -344,8 +213,8 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.context_id != null }}"
                 sequence:
-                  - service: mqtt.publish
-                    data_template:
+                  - action: mqtt.publish
+                    data:
                       topic: !input set_topic
                       payload: |-
                         {
@@ -355,3 +224,113 @@ action:
                             "mode": "disarm"
                           }
                         }
+    default:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state: disarmed
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "disarm"
+                      }
+                    }
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state: armed_night
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "arm_night_zones"
+                      }
+                    }
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state: armed_home
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "arm_day_zones"
+                      }
+                    }
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state:
+                  - armed_away
+                  - armed_vacation
+                  - armed_custom_bypass
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "arm_all_zones"
+                      }
+                    }
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state: arming
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "exit_delay"
+                      }
+                    }
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state: pending
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "entry_delay"
+                      }
+                    }
+          - conditions:
+              - condition: state
+                entity_id: !input entity
+                state: triggered
+            sequence:
+              - action: mqtt.publish
+                data:
+                  topic: !input set_topic
+                  payload: |-
+                    {
+                      "arm_mode":
+                      {
+                        "mode": "in_alarm"
+                      }
+                    }
